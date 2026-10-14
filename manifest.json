@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Site Agent",
+  "version": "0.3.0",
+  "permissions": ["storage", "scripting", "tabs"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "optional_host_permissions": ["<all_urls>"],
+  "action": { "default_title": "Open agent console" },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
