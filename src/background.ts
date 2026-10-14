@@ -146,7 +146,13 @@ chrome.windows.onRemoved.addListener((winId) => {
 async function ensureAccess(
   tabId: number,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const tab = await chrome.tabs.get(tabId);
+  let tab: chrome.tabs.Tab;
+  try {
+    tab = await chrome.tabs.get(tabId);
+  } catch {
+    return { ok: false, reason: "no_such_tab" };
+  }
+
   if (!tab.url || !/^https?:/.test(tab.url))
     return { ok: false, reason: "unsupported_page" };
   const origin = new URL(tab.url).origin;
@@ -187,9 +193,7 @@ async function listAllTools(includeDisabled: boolean): Promise<ToolSpec[]> {
     await chrome.storage.local.get("disabledTools");
   const disabled = disabledTools as string[];
   const all = [...globalTools, ...(await pageTools())];
-  return includeDisabled
-    ? all
-    : all.filter((t) => !disabled.includes(t.name));
+  return includeDisabled ? all : all.filter((t) => !disabled.includes(t.name));
 }
 
 // ---------- execution ----------
@@ -211,7 +215,13 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
     return { ok: true, tabId: tab.id };
   }
   if (name === "browser_attach_tab") {
-    await setAttached(Number(args.tabId));
+    const id = Number(args.tabId);
+    try {
+      await chrome.tabs.get(id);
+    } catch {
+      return { ok: false, reason: "no_such_tab" };
+    }
+    await setAttached(id);
     return { ok: true };
   }
   if (name === "browser_snapshot" || name === "browser_health") {
@@ -306,7 +316,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case "AGENT_CALL_TOOL": {
         if (!trusted) return forbidden;
         if (await isPaused()) return { ok: false, reason: "paused" };
-        const out: any = await callTool(msg.name, msg.args);
+        let out: any;
+        try {
+          out = await callTool(msg.name, msg.args);
+        } catch (e) {
+          out = { ok: false, reason: "internal_error", error: String(e) };
+        }
         await audit({
           tool: msg.name,
           source: isBridge(sender) ? "site" : "console",

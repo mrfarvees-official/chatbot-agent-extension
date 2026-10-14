@@ -3,7 +3,14 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["node_modules/**", "dist/**", "build/**", "coverage/**"],
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      "**/*.ts",
+      "**/*.tsx",
+    ],
   },
   {
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx}"],
@@ -13,6 +20,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.es2022,
+        ...globals.node,
         chrome: "readonly",
       },
     },

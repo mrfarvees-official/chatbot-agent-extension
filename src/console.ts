@@ -11,11 +11,14 @@ const $ = (id: string) => document.getElementById(id)!;
 const call = (type: string, extra: object = {}): Promise<any> =>
   chrome.runtime.sendMessage({ type, ...extra });
 
+const outputs = new Map<string, string>();
+let toolsKey = "";
+
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   props: Record<string, unknown> = {},
   ...kids: (Node | string)[]
-) : HTMLElementTagNameMap[K] {
+): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   Object.assign(e, props);
   e.append(...kids);
@@ -57,7 +60,7 @@ function toolCard(t: Spec, disabled: string[]) {
     ...field(n, s, req.includes(n)),
   }));
 
-  const out = el("pre");
+  const out = el("pre", { textContent: outputs.get(t.name) ?? "" });
   const run = el("button", { textContent: "Run" });
   run.onclick = async () => {
     const args: Record<string, unknown> = {};
@@ -66,11 +69,13 @@ function toolCard(t: Spec, disabled: string[]) {
       if (v !== undefined) args[f.n] = v;
     }
     out.textContent = "running...";
-    out.textContent = JSON.stringify(
+    const text = JSON.stringify(
       await call("AGENT_CALL_TOOL", { name: t.name, args }),
       null,
       2,
     );
+    outputs.set(t.name, text);
+    out.textContent = text;
     renderLog();
     renderPerms();
     renderTools(); // page tools appear after attaching a tab
@@ -107,6 +112,9 @@ async function renderTools() {
   const tools: Spec[] = await call("AGENT_LIST_TOOLS", { all: true });
   const { disabledTools = [] } =
     await chrome.storage.local.get("disabledTools");
+  const key = tools.map((t) => t.name).join(",");
+  if (key === toolsKey) return; // unchanged: keep cards and their results
+  toolsKey = key;
   $("tools").replaceChildren(
     ...tools.map((t) => toolCard(t, disabledTools as string[])),
   );
