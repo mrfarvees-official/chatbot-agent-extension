@@ -1,22 +1,26 @@
 import { build, context } from "esbuild";
 import { cpSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
-mkdirSync("dist", { recursive: true });
+const root = process.cwd();
+const dist = join(root, "dist");
+mkdirSync(dist, { recursive: true });
 for (const f of ["manifest.json", "approve.html", "console.html"])
-  cpSync(f, `dist/${f}`);
+  cpSync(join(root, f), join(dist, f));
 
 const options = {
   entryPoints: {
-    background: "src/background.ts",
-    bridge: "src/bridge.ts",
-    content: "src/content.ts",
-    approve: "src/approve.ts",
-    console: "src/console.ts",
+    background: join(root, "src/background.ts"),
+    bridge: join(root, "src/bridge.ts"),
+    content: join(root, "src/content.ts"),
+    approve: join(root, "src/approve.ts"),
+    console: join(root, "src/console.ts"),
   },
   bundle: true,
   format: "iife",
   target: "chrome110",
-  outdir: "dist",
+  outdir: dist,
+  absWorkingDir: root,
   logLevel: "info",
 };
 
