@@ -2,10 +2,20 @@ import type { ToolSpec } from "./core/types";
 import { validateArgs } from "./core/validate";
 
 const API_VERSION = 2;
-const TRUSTED_ORIGINS = [
-  "http://localhost:3000",
-  "https://chatbot.farvees.xyz",
-]; // add your production origin later
+const TRUSTED_ORIGINS = ["https://chatbot.farvees.xyz"];
+
+function isTrustedOrigin(value: string) {
+  try {
+    const url = new URL(value);
+    return (
+      TRUSTED_ORIGINS.includes(url.origin) ||
+      (url.protocol === "http:" &&
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1"))
+    );
+  } catch {
+    return false;
+  }
+}
 
 const SITE_TOOL_ALLOWLIST = new Set([
   "gmail_compose_draft",
@@ -406,7 +416,7 @@ const isBridge = (s: chrome.runtime.MessageSender) => {
   try {
     const u = new URL(s.url ?? "");
     // The public chat page must never render untrusted HTML.
-    return TRUSTED_ORIGINS.includes(u.origin);
+    return isTrustedOrigin(u.origin);
   } catch {
     return false;
   }

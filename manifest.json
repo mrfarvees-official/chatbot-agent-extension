@@ -4,7 +4,8 @@
   "version": "0.4.0",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": [
-    "http://localhost:3000/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*",
     "https://chatbot.farvees.xyz/*"
   ],
   "optional_host_permissions": ["<all_urls>"],
@@ -13,7 +14,8 @@
   "content_scripts": [
     {
       "matches": [
-        "http://localhost:3000/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*",
         "https://chatbot.farvees.xyz/*"
       ],
       "js": ["bridge.js"],
