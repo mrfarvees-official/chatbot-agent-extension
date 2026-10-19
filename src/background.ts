@@ -1,5 +1,6 @@
 import type { ToolSpec } from "./core/types";
 import { validateArgs } from "./core/validate";
+import { gmailAdapter } from "./adapters/gmail";
 import { createGmailDraftUrl } from "./gmail-draft";
 import { PUBLIC_SITE_TOOL_ALLOWLIST } from "./site-tools";
 
@@ -233,11 +234,31 @@ async function listAllTools(includeDisabled: boolean): Promise<ToolSpec[]> {
   const disabled = disabledTools as string[];
 
   const seen = new Set<string>();
-  const all = [...globalTools, ...(await pageTools())].filter(
+  // Advertise Gmail capabilities before a Gmail tab exists. Execution will
+  // attach/open Gmail when an authenticated user actually calls one.
+  const all = [...globalTools, ...gmailAdapter.tools, ...(await pageTools())].filter(
     (t) => !seen.has(t.name) && !!seen.add(t.name),
   );
 
   return includeDisabled ? all : all.filter((t) => !disabled.includes(t.name));
+}
+
+async function ensureGmailTab(): Promise<number | undefined> {
+  const attached = await getAttached();
+  if (attached !== undefined) {
+    try {
+      const tab = await chrome.tabs.get(attached);
+      if (new URL(tab.url ?? "").hostname === "mail.google.com") return attached;
+    } catch {
+      /* Open a fresh Gmail tab below. */
+    }
+  }
+
+  const tab = await chrome.tabs.create({ url: "https://mail.google.com/mail/u/0/#inbox" });
+  if (tab.id === undefined) return undefined;
+  await waitForLoad(tab.id);
+  await setAttached(tab.id);
+  return tab.id;
 }
 
 // ---------- execution ----------
@@ -341,7 +362,9 @@ async function callTool(name: string, args: any): Promise<unknown> {
     return runGlobal(name, args ?? {});
   }
 
-  const tabId = await getAttached();
+  const tabId = name.startsWith("gmail_")
+    ? await ensureGmailTab()
+    : await getAttached();
   if (tabId === undefined) return { ok: false, reason: "no_attached_tab" };
   const access = await ensureAccess(tabId);
   if (!access.ok) return access;
