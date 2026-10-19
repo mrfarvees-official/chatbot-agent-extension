@@ -1,5 +1,7 @@
 import type { ToolSpec } from "./core/types";
 import { validateArgs } from "./core/validate";
+import { createGmailDraftUrl } from "./gmail-draft";
+import { PUBLIC_SITE_TOOL_ALLOWLIST } from "./site-tools";
 
 const API_VERSION = 2;
 const TRUSTED_ORIGINS = ["https://chatbot.farvees.xyz"];
@@ -17,14 +19,7 @@ function isTrustedOrigin(value: string) {
   }
 }
 
-const SITE_TOOL_ALLOWLIST = new Set([
-  "gmail_compose_draft",
-  "gmail_send_current_draft",
-  "calendar_create_event",
-  "calendar_compose_invite_email",
-  "meet_schedule_meeting",
-  "meet_compose_invite_email",
-]);
+const SITE_TOOL_ALLOWLIST = PUBLIC_SITE_TOOL_ALLOWLIST;
 
 const emptySchema = { type: "object", properties: {} };
 
@@ -277,34 +272,13 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
   }
 
   if (name === "gmail_compose_draft") {
-    const emails = (s: unknown) =>
-      String(s ?? "")
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean);
-    const valid = (list: string[]) =>
-      list.length > 0 &&
-      list.every((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-
-    const to = emails(args.to);
-    if (!valid(to)) return { ok: false, reason: "invalid_recipient" };
-    const p = new URLSearchParams({
-      view: "cm",
-      fs: "1",
-      to: to.join(","),
-      su: String(args.subject),
-      body: String(args.body),
-    });
-    for (const k of ["cc", "bcc"]) {
-      const list = emails(args[k]);
-      if (!list.length) continue;
-      if (!valid(list)) return { ok: false, reason: `invalid_${k}` };
-      p.set(k, list.join(","));
+    let url: string;
+    try {
+      url = createGmailDraftUrl(args);
+    } catch (error) {
+      return { ok: false, reason: String(error instanceof Error ? error.message : error) };
     }
-
-    const tab = await chrome.tabs.create({
-      url: `https://mail.google.com/mail/?${p}`,
-    });
+    const tab = await chrome.tabs.create({ url });
     await waitForLoad(tab.id!);
     await setAttached(tab.id!);
 
