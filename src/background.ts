@@ -414,7 +414,10 @@ const isExtPage = (s: chrome.runtime.MessageSender) =>
 const isBridge = (s: chrome.runtime.MessageSender) => {
   if (s.id !== chrome.runtime.id || !s.tab) return false;
   try {
-    const u = new URL(s.url ?? "");
+    // Content-script messages may expose the page URL through tab.url rather
+    // than sender.url. The tab URL is extension-provided metadata, not client
+    // input, and is the source used for the trusted-origin check.
+    const u = new URL(s.tab.url ?? s.url ?? "");
     // The public chat page must never render untrusted HTML.
     return isTrustedOrigin(u.origin);
   } catch {
