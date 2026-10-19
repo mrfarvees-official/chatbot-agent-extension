@@ -1,11 +1,20 @@
 import type { ToolSpec } from "./core/types";
 import { validateArgs } from "./core/validate";
 
-const API_VERSION = 1;
+const API_VERSION = 2;
 const TRUSTED_ORIGINS = [
   "http://localhost:3000",
   "https://chatbot.farvees.xyz",
 ]; // add your production origin later
+
+const SITE_TOOL_ALLOWLIST = new Set([
+  "gmail_compose_draft",
+  "gmail_send_current_draft",
+  "calendar_create_event",
+  "calendar_compose_invite_email",
+  "meet_schedule_meeting",
+  "meet_compose_invite_email",
+]);
 
 const emptySchema = { type: "object", properties: {} };
 
@@ -106,6 +115,22 @@ function waitForLoad(tabId: number, timeoutMs = 15000) {
 // ---------- controls: pause, per-tool toggles, audit log ----------
 const isPaused = async () =>
   !!(await chrome.storage.local.get("paused")).paused;
+
+async function ensureSiteConnection(
+  sender: chrome.runtime.MessageSender,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const origin = originOf(sender.url);
+  if (!origin || !TRUSTED_ORIGINS.includes(origin))
+    return { ok: false, reason: "forbidden" };
+  const { connectedOrigins = [] } = await chrome.storage.local.get("connectedOrigins");
+  if ((connectedOrigins as string[]).includes(origin)) return { ok: true };
+  const approved = await openApprovalWindow({ mode: "connect", origin });
+  if (!approved) return { ok: false, reason: "site_not_connected" };
+  await chrome.storage.local.set({
+    connectedOrigins: [...new Set([...(connectedOrigins as string[]), origin])],
+  });
+  return { ok: true };
+}
 
 async function audit(e: {
   tool: string;
@@ -396,9 +421,8 @@ const isBridge = (s: chrome.runtime.MessageSender) => {
   if (s.id !== chrome.runtime.id || !s.tab) return false;
   try {
     const u = new URL(s.url ?? "");
-    return (
-      TRUSTED_ORIGINS.includes(u.origin) && u.pathname.startsWith("/admin")
-    );
+    // The public chat page must never render untrusted HTML.
+    return TRUSTED_ORIGINS.includes(u.origin);
   } catch {
     return false;
   }
@@ -417,11 +441,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             }
           : forbidden;
       case "AGENT_LIST_TOOLS":
-        return trusted
-          ? listAllTools(!!msg.all && isExtPage(sender))
-          : forbidden;
+        if (!trusted) return forbidden;
+        if (isBridge(sender)) {
+          const access = await ensureSiteConnection(sender);
+          if (!access.ok) return access;
+        }
+        {
+          const tools = await listAllTools(!!msg.all && isExtPage(sender));
+          return isBridge(sender)
+            ? tools.filter((tool) => SITE_TOOL_ALLOWLIST.has(tool.name))
+            : tools;
+        }
       case "AGENT_CALL_TOOL": {
         if (!trusted) return forbidden;
+        if (isBridge(sender)) {
+          const access = await ensureSiteConnection(sender);
+          if (!access.ok) return access;
+          if (!SITE_TOOL_ALLOWLIST.has(msg.name))
+            return { ok: false, reason: "tool_not_allowed_for_site" };
+        }
         if (await isPaused()) return { ok: false, reason: "paused" };
         let out: any;
         try {

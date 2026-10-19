@@ -137,6 +137,23 @@ async function renderPerms() {
   );
 }
 
+async function renderConnections() {
+  const { connectedOrigins = [] } = await chrome.storage.local.get("connectedOrigins");
+  $("connectedSites").replaceChildren(
+    ...(connectedOrigins as string[]).map((origin) => {
+      const revoke = el("button", { textContent: "Revoke" });
+      revoke.onclick = async () => {
+        const current = await chrome.storage.local.get("connectedOrigins");
+        await chrome.storage.local.set({
+          connectedOrigins: (current.connectedOrigins as string[] ?? []).filter((item) => item !== origin),
+        });
+        renderConnections();
+      };
+      return el("div", {}, origin + " ", revoke);
+    }),
+  );
+}
+
 async function renderLog() {
   const { log = [] } = await chrome.storage.local.get("log");
   $("log").textContent = (log as any[])
@@ -155,4 +172,5 @@ paused.onchange = () => chrome.storage.local.set({ paused: paused.checked });
 
 renderTools();
 renderPerms();
+renderConnections();
 renderLog();

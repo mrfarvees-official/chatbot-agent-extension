@@ -10,7 +10,7 @@ export const genericAdapter: SiteAdapter = {
       name: "generic_click_text",
       description:
         "Click the first button or link whose visible text contains the given text. Returns ok false if nothing matches. Does not type or submit forms.",
-      risk: "write",
+      risk: "irreversible",
       inputSchema: {
         type: "object",
         properties: { text: { type: "string" } },

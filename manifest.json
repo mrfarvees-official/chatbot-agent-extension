@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Site Agent",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": [
     "http://localhost:3000/*",
@@ -14,7 +14,7 @@
     {
       "matches": [
         "http://localhost:3000/*",
-        "https://chatbot.farvees.xyz/admin*"
+        "https://chatbot.farvees.xyz/*"
       ],
       "js": ["bridge.js"],
       "run_at": "document_start"

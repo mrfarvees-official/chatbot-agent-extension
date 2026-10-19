@@ -40,7 +40,7 @@ export const meetAdapter: SiteAdapter = {
     { name: "meet_list_participants", description: "Open the participant panel and return visible participant names.", risk: "read", inputSchema: { type: "object", properties: {} } },
     { name: "meet_manage_participant", description: "Mute or remove a participant by visible name. Removal requires approval.", risk: "irreversible", inputSchema: { type: "object", properties: { name: { type: "string" }, action: { type: "string", enum: ["mute", "remove"] } }, required: ["name", "action"] } },
     { name: "meet_read_chat", description: "Open Meet chat and return visible chat messages.", risk: "read", inputSchema: { type: "object", properties: {} } },
-    { name: "meet_send_chat", description: "Send a message to the current Meet chat.", risk: "write", inputSchema: { type: "object", properties: { message: { type: "string" } }, required: ["message"] } },
+    { name: "meet_send_chat", description: "Send a message to the current Meet chat.", risk: "irreversible", inputSchema: { type: "object", properties: { message: { type: "string" } }, required: ["message"] } },
     { name: "meet_toggle_captions", description: "Turn live captions on or off.", risk: "write", inputSchema: { type: "object", properties: {} } },
     { name: "meet_read_captions", description: "Return captions currently visible in Meet; not a full historical transcript.", risk: "read", inputSchema: { type: "object", properties: {} } },
     { name: "meet_toggle_recording", description: "Start or stop Meet recording through More options. Requires approval.", risk: "irreversible", inputSchema: { type: "object", properties: { action: { type: "string", enum: ["start", "stop"] } }, required: ["action"] } },

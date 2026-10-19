@@ -6,7 +6,11 @@ const mode = p.get("mode") ?? "action";
 const $ = (s: string) => document.getElementById(s)!;
 const ok = $("ok") as HTMLButtonElement;
 
-if (mode === "permission") {
+if (mode === "connect") {
+  $("title").textContent = "Allow this site to use Site Agent?";
+  $("detail").textContent = p.get("origin") ?? "";
+  ok.textContent = "Allow";
+} else if (mode === "permission") {
   $("title").textContent = "Allow the assistant to use this site?";
   $("detail").textContent = p.get("origin") ?? "";
   ok.textContent = "Allow";
