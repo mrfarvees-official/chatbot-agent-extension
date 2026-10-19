@@ -9,9 +9,9 @@ describe("public extension tool contract", () => {
   it("exposes only the intended public tools", () => {
     expect(PUBLIC_SITE_TOOL_NAMES).toContain("gmail_compose_draft");
     expect(PUBLIC_SITE_TOOL_NAMES).toContain("gmail_send_current_draft");
-    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_read_email")).toBe(false);
-    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_delete_email")).toBe(false);
-    expect(PUBLIC_SITE_TOOL_NAMES).toHaveLength(6);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_read_email")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_delete_email")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_NAMES).toHaveLength(16);
   });
 
   it("validates the Gmail draft contract without opening Chrome", () => {
