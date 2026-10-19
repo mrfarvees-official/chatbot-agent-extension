@@ -32,8 +32,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const inCompose = () =>
   new URLSearchParams(location.search).get("view") === "cm";
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) + "…" : s);
-const quote = (s: string) =>
-  /\s/.test(s) ? `"${s.replace(/"/g, "")}"` : s;
+const quote = (s: string) => (/\s/.test(s) ? `"${s.replace(/"/g, "")}"` : s);
 
 const val = (sel: string) =>
   document.querySelector<HTMLInputElement | HTMLTextAreaElement>(sel)?.value ??
@@ -55,10 +54,16 @@ const named = (...names: string[]) => {
       '[aria-label], [title], [role="button"], button',
     ),
   ).find((el) => {
-    const labels = [el.getAttribute("aria-label"), el.getAttribute("title"), el.textContent]
+    const labels = [
+      el.getAttribute("aria-label"),
+      el.getAttribute("title"),
+      el.textContent,
+    ]
       .filter(Boolean)
       .map((s) => normalize(String(s)));
-    return labels.some((label) => wanted.some((w) => label === w || label.includes(w)));
+    return labels.some((label) =>
+      wanted.some((w) => label === w || label.includes(w)),
+    );
   });
 };
 
@@ -72,9 +77,16 @@ const clickNamed = (...names: string[]) => {
 const setEditable = (el: HTMLElement | null, text: string) => {
   if (!el) return false;
   el.focus();
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) el.value = text;
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
+    el.value = text;
   else el.innerText = text;
-  el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  el.dispatchEvent(
+    new InputEvent("input", {
+      bubbles: true,
+      inputType: "insertText",
+      data: text,
+    }),
+  );
   return true;
 };
 
@@ -89,14 +101,25 @@ async function openResult(index: unknown) {
 }
 
 function attachmentRows() {
-  return Array.from(document.querySelectorAll<HTMLAnchorElement>(`${SEL.thread} a[href]`))
+  return Array.from(
+    document.querySelectorAll<HTMLAnchorElement>(`${SEL.thread} a[href]`),
+  )
     .map((a, index) => ({
       index,
-      filename: (a.getAttribute("download") || a.textContent || a.getAttribute("aria-label") || "attachment").trim(),
+      filename: (
+        a.getAttribute("download") ||
+        a.textContent ||
+        a.getAttribute("aria-label") ||
+        "attachment"
+      ).trim(),
       url: a.href,
       tooltip: a.getAttribute("data-tooltip") || a.getAttribute("title") || "",
     }))
-    .filter((a) => /download|attachment|\.((pdf)|(docx?)|(xlsx?)|(pptx?)|(zip)|(png)|(jpe?g)|(gif)|(txt))\b/i.test(`${a.filename} ${a.tooltip} ${a.url}`));
+    .filter((a) =>
+      /download|attachment|\.((pdf)|(docx?)|(xlsx?)|(pptx?)|(zip)|(png)|(jpe?g)|(gif)|(txt))\b/i.test(
+        `${a.filename} ${a.tooltip} ${a.url}`,
+      ),
+    );
 }
 
 async function waitFor(pred: () => boolean, timeoutMs = 6000) {
@@ -175,15 +198,28 @@ function readRows(max: number) {
 function readThread() {
   const subject =
     document.querySelector(SEL.threadSubject)?.textContent?.trim() ?? "";
+
   const all = Array.from(document.querySelectorAll<HTMLElement>(SEL.thread))
-    .map((m) => ({
-      from: m.querySelector<HTMLElement>(SEL.threadFrom)?.getAttribute("email") ?? "",
-      date: m.querySelector<HTMLElement>(SEL.threadDate)?.getAttribute("title") ?? "",
-      text: (m.querySelector<HTMLElement>(SEL.threadText)?.innerText ?? "").trim(),
+    .map((message) => ({
+      from:
+        message
+          .querySelector<HTMLElement>(SEL.threadFrom)
+          ?.getAttribute("email") ?? "",
+      date:
+        message
+          .querySelector<HTMLElement>(SEL.threadDate)
+          ?.getAttribute("title") ?? "",
+      text: (
+        message.querySelector<HTMLElement>(SEL.threadText)?.innerText ?? ""
+      ).trim(),
     }))
-    .filter((m) => m.text);
+    .filter((message) => message.text);
+
   // Newest 6 messages, each capped, to keep model cost down.
-  const messages = all.slice(-6).map((m) => ({ ...m, text: clip(m.text, 2500) }));
+  const messages = all.slice(-6).map((message) => ({
+    ...message,
+    text: clip(message.text, 2500),
+  }));
   return { subject, messages, truncated: all.length > messages.length };
 }
 
@@ -225,7 +261,10 @@ export const gmailAdapter: SiteAdapter = {
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Free text or raw Gmail query" },
+          query: {
+            type: "string",
+            description: "Free text or raw Gmail query",
+          },
           from: { type: "string" },
           to: { type: "string" },
           subject: { type: "string" },
@@ -251,7 +290,8 @@ export const gmailAdapter: SiteAdapter = {
     },
     {
       name: "gmail_reply_draft",
-      description: "Open a reply draft for the current thread or a result index. Does NOT send.",
+      description:
+        "Open a reply draft for the current thread or a result index. Does NOT send.",
       risk: "write",
       inputSchema: {
         type: "object",
@@ -260,55 +300,82 @@ export const gmailAdapter: SiteAdapter = {
     },
     {
       name: "gmail_forward_draft",
-      description: "Open a forward draft for the current thread or a result index. Optional comma-separated recipients and body. Does NOT send.",
+      description:
+        "Open a forward draft for the current thread or a result index. Optional comma-separated recipients and body. Does NOT send.",
       risk: "write",
       inputSchema: {
         type: "object",
-        properties: { index: { type: "number" }, to: { type: "string" }, body: { type: "string" } },
+        properties: {
+          index: { type: "number" },
+          to: { type: "string" },
+          body: { type: "string" },
+        },
       },
     },
     {
       name: "gmail_archive_email",
       description: "Archive the current thread or a result index.",
       risk: "write",
-      inputSchema: { type: "object", properties: { index: { type: "number" } } },
+      inputSchema: {
+        type: "object",
+        properties: { index: { type: "number" } },
+      },
     },
     {
       name: "gmail_delete_email",
-      description: "Move the current thread or a result index to Gmail Trash. Requires approval.",
+      description:
+        "Move the current thread or a result index to Gmail Trash. Requires approval.",
       risk: "irreversible",
-      inputSchema: { type: "object", properties: { index: { type: "number" } } },
+      inputSchema: {
+        type: "object",
+        properties: { index: { type: "number" } },
+      },
     },
     {
       name: "gmail_mark_email",
-      description: "Mark the current thread or a result index as read or unread.",
+      description:
+        "Mark the current thread or a result index as read or unread.",
       risk: "write",
       inputSchema: {
         type: "object",
-        properties: { index: { type: "number" }, state: { type: "string", enum: ["read", "unread"] } },
+        properties: {
+          index: { type: "number" },
+          state: { type: "string", enum: ["read", "unread"] },
+        },
         required: ["state"],
       },
     },
     {
       name: "gmail_modify_labels",
-      description: "Add or remove comma-separated Gmail labels on the current thread or a result index.",
+      description:
+        "Add or remove comma-separated Gmail labels on the current thread or a result index.",
       risk: "write",
       inputSchema: {
         type: "object",
-        properties: { index: { type: "number" }, add: { type: "string" }, remove: { type: "string" } },
+        properties: {
+          index: { type: "number" },
+          add: { type: "string" },
+          remove: { type: "string" },
+        },
       },
     },
     {
       name: "gmail_list_attachments",
-      description: "List downloadable attachments from the currently open email thread.",
+      description:
+        "List downloadable attachments from the currently open email thread.",
       risk: "read",
       inputSchema: { type: "object", properties: {} },
     },
     {
       name: "gmail_open_attachment",
-      description: "Open an attachment from the current thread in a new browser tab so Gmail/the browser can download it.",
+      description:
+        "Open an attachment from the current thread in a new browser tab so Gmail/the browser can download it.",
       risk: "write",
-      inputSchema: { type: "object", properties: { index: { type: "number" } }, required: ["index"] },
+      inputSchema: {
+        type: "object",
+        properties: { index: { type: "number" } },
+        required: ["index"],
+      },
     },
   ],
   snapshot() {
@@ -332,9 +399,18 @@ export const gmailAdapter: SiteAdapter = {
     const r = SEL.row;
     return [
       { name: "list_rows", ok: !!document.querySelector(r) },
-      { name: "row_sender", ok: !!document.querySelector(`${r} ${SEL.rowSender}`) },
-      { name: "row_subject", ok: !!document.querySelector(`${r} ${SEL.rowSubject}`) },
-      { name: "row_snippet", ok: !!document.querySelector(`${r} ${SEL.rowSnippet}`) },
+      {
+        name: "row_sender",
+        ok: !!document.querySelector(`${r} ${SEL.rowSender}`),
+      },
+      {
+        name: "row_subject",
+        ok: !!document.querySelector(`${r} ${SEL.rowSubject}`),
+      },
+      {
+        name: "row_snippet",
+        ok: !!document.querySelector(`${r} ${SEL.rowSnippet}`),
+      },
       { name: "row_date", ok: !!document.querySelector(`${r} ${SEL.rowDate}`) },
     ];
   },
@@ -385,7 +461,9 @@ export const gmailAdapter: SiteAdapter = {
       if (args.index === undefined) {
         return { ok: true, ...readThread(), untrusted: true, note: UNTRUSTED };
       }
-      const row = document.querySelectorAll<HTMLElement>(SEL.row)[Number(args.index)];
+      const row = document.querySelectorAll<HTMLElement>(SEL.row)[
+        Number(args.index)
+      ];
       if (!row) {
         return {
           ok: false,
@@ -404,25 +482,55 @@ export const gmailAdapter: SiteAdapter = {
       return { ok: true, ...data, untrusted: true, note: UNTRUSTED };
     }
 
-    if (["gmail_reply_draft", "gmail_forward_draft", "gmail_archive_email", "gmail_delete_email", "gmail_mark_email", "gmail_modify_labels"].includes(tool)) {
+    if (
+      [
+        "gmail_reply_draft",
+        "gmail_forward_draft",
+        "gmail_archive_email",
+        "gmail_delete_email",
+        "gmail_mark_email",
+        "gmail_modify_labels",
+      ].includes(tool)
+    ) {
       if (inCompose()) return needMailbox;
-      if (!(await openResult(args.index))) return { ok: false, reason: "open_failed" };
+      if (!(await openResult(args.index)))
+        return { ok: false, reason: "open_failed" };
     }
 
     if (tool === "gmail_reply_draft") {
-      if (!clickNamed("Reply")) return { ok: false, reason: "reply_button_not_found" };
+      if (!clickNamed("Reply"))
+        return { ok: false, reason: "reply_button_not_found" };
       await sleep(500);
-      if (args.body !== undefined && !setEditable(document.querySelector<HTMLElement>(SEL.body), String(args.body)))
+      if (
+        args.body !== undefined &&
+        !setEditable(
+          document.querySelector<HTMLElement>(SEL.body),
+          String(args.body),
+        )
+      )
         return { ok: false, reason: "reply_body_not_found" };
       return { ok: true, note: "Reply draft opened, not sent" };
     }
 
     if (tool === "gmail_forward_draft") {
-      if (!clickNamed("Forward")) return { ok: false, reason: "forward_button_not_found" };
+      if (!clickNamed("Forward"))
+        return { ok: false, reason: "forward_button_not_found" };
       await sleep(500);
-      if (args.to && !setEditable(document.querySelector<HTMLElement>(SEL.to), String(args.to)))
+      if (
+        args.to &&
+        !setEditable(
+          document.querySelector<HTMLElement>(SEL.to),
+          String(args.to),
+        )
+      )
         return { ok: false, reason: "forward_recipient_not_found" };
-      if (args.body !== undefined && !setEditable(document.querySelector<HTMLElement>(SEL.body), String(args.body)))
+      if (
+        args.body !== undefined &&
+        !setEditable(
+          document.querySelector<HTMLElement>(SEL.body),
+          String(args.body),
+        )
+      )
         return { ok: false, reason: "forward_body_not_found" };
       return { ok: true, note: "Forward draft opened, not sent" };
     }
@@ -448,32 +556,50 @@ export const gmailAdapter: SiteAdapter = {
 
     if (tool === "gmail_modify_labels") {
       const changes: string[] = [];
-      for (const [value, action] of [[args.add, "add"], [args.remove, "remove"]] as const) {
+      for (const [value, action] of [
+        [args.add, "add"],
+        [args.remove, "remove"],
+      ] as const) {
         if (!value) continue;
-        if (!clickNamed("Labels")) return { ok: false, reason: "labels_button_not_found" };
+        if (!clickNamed("Labels"))
+          return { ok: false, reason: "labels_button_not_found" };
         await sleep(300);
-        for (const label of String(value).split(",").map((x) => x.trim()).filter(Boolean)) {
+        for (const label of String(value)
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean)) {
           const item = named(label);
           if (!item) return { ok: false, reason: "label_not_found", label };
           item.click();
           changes.push(`${action}:${label}`);
         }
-        if (!clickNamed("Apply")) return { ok: false, reason: "apply_labels_button_not_found" };
+        if (!clickNamed("Apply"))
+          return { ok: false, reason: "apply_labels_button_not_found" };
         await sleep(300);
       }
       return { ok: true, changes };
     }
 
     if (tool === "gmail_list_attachments") {
-      if (!document.querySelector(SEL.thread)) return { ok: false, reason: "open_thread_first" };
-      return { ok: true, attachments: attachmentRows(), untrusted: true, note: UNTRUSTED };
+      if (!document.querySelector(SEL.thread))
+        return { ok: false, reason: "open_thread_first" };
+      return {
+        ok: true,
+        attachments: attachmentRows(),
+        untrusted: true,
+        note: UNTRUSTED,
+      };
     }
 
     if (tool === "gmail_open_attachment") {
       const attachment = attachmentRows()[Number(args.index)];
       if (!attachment) return { ok: false, reason: "attachment_not_found" };
       await ctx.openUrl(attachment.url);
-      return { ok: true, filename: attachment.filename, note: "Attachment opened in a new tab" };
+      return {
+        ok: true,
+        filename: attachment.filename,
+        note: "Attachment opened in a new tab",
+      };
     }
 
     throw new Error("Unknown tool " + tool);

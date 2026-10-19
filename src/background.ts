@@ -2,10 +2,14 @@ import type { ToolSpec } from "./core/types";
 import { validateArgs } from "./core/validate";
 
 const API_VERSION = 1;
-const TRUSTED_ORIGINS = ["http://localhost:3000"]; // add your production origin later
+const TRUSTED_ORIGINS = [
+  "http://localhost:3000",
+  "https://chatbot.farvees.xyz",
+]; // add your production origin later
+
 const emptySchema = { type: "object", properties: {} };
 
-const globalTools: ToolSpec[] = [
+export const globalTools: ToolSpec[] = [
   {
     name: "browser_list_tabs",
     description: "List open tabs (id, title, site origin). Read only.",
@@ -46,9 +50,30 @@ const globalTools: ToolSpec[] = [
     risk: "read",
     inputSchema: emptySchema,
   },
+  {
+    name: "gmail_compose_draft",
+    description:
+      "Open a prefilled Gmail compose draft in a new tab and attach to it. Does NOT send. Use for any email. Afterwards tell the owner the draft is open for review; only call gmail_send_current_draft if the owner wants it sent.",
+    risk: "write",
+    inputSchema: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "Comma-separated emails" },
+        cc: { type: "string", description: "Comma-separated emails" },
+        bcc: { type: "string", description: "Comma-separated emails" },
+        subject: { type: "string" },
+        body: {
+          type: "string",
+          description: "Plain text, use \\n for line breaks",
+        },
+      },
+      required: ["to", "subject", "body"],
+    },
+  },
 ];
 
 const forbidden = { ok: false, reason: "forbidden" };
+
 const originOf = (u?: string) => {
   try {
     return u ? new URL(u).origin : "";
@@ -170,7 +195,7 @@ async function ensureAccess(
   return { ok: true };
 }
 
-async function pageTools(): Promise<ToolSpec[]> {
+export async function pageTools(): Promise<ToolSpec[]> {
   const tabId = await getAttached();
   if (tabId === undefined) return [];
   try {
@@ -192,7 +217,12 @@ async function listAllTools(includeDisabled: boolean): Promise<ToolSpec[]> {
   const { disabledTools = [] } =
     await chrome.storage.local.get("disabledTools");
   const disabled = disabledTools as string[];
-  const all = [...globalTools, ...(await pageTools())];
+
+  const seen = new Set<string>();
+  const all = [...globalTools, ...(await pageTools())].filter(
+    (t) => !seen.has(t.name) && !!seen.add(t.name),
+  );
+
   return includeDisabled ? all : all.filter((t) => !disabled.includes(t.name));
 }
 
@@ -206,6 +236,7 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
       origin: originOf(t.url),
     }));
   }
+
   if (name === "browser_open_tab") {
     if (!/^https:\/\//.test(String(args.url)))
       return { ok: false, reason: "https_only" };
@@ -214,6 +245,7 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
     await setAttached(tab.id!);
     return { ok: true, tabId: tab.id };
   }
+
   if (name === "browser_attach_tab") {
     const id = Number(args.tabId);
     try {
@@ -224,6 +256,72 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
     await setAttached(id);
     return { ok: true };
   }
+
+  if (name === "gmail_compose_draft") {
+    const emails = (s: unknown) =>
+      String(s ?? "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+    const valid = (list: string[]) =>
+      list.length > 0 &&
+      list.every((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
+    const to = emails(args.to);
+    if (!valid(to)) return { ok: false, reason: "invalid_recipient" };
+    const p = new URLSearchParams({
+      view: "cm",
+      fs: "1",
+      to: to.join(","),
+      su: String(args.subject),
+      body: String(args.body),
+    });
+    for (const k of ["cc", "bcc"]) {
+      const list = emails(args[k]);
+      if (!list.length) continue;
+      if (!valid(list)) return { ok: false, reason: `invalid_${k}` };
+      p.set(k, list.join(","));
+    }
+
+    const tab = await chrome.tabs.create({
+      url: `https://mail.google.com/mail/?${p}`,
+    });
+    await waitForLoad(tab.id!);
+    await setAttached(tab.id!);
+
+    // First time only: shows the "Allow this site?" popup
+    const access = await ensureAccess(tab.id!);
+    if (!access.ok) {
+      return {
+        ok: true,
+        tabId: tab.id,
+        automation: false,
+        note: "Draft is open but I can't automate Gmail. The owner must review and press Send themselves.",
+      };
+    }
+
+    // Wait until Gmail's compose fields and Send button exist
+    let health: { name: string; ok: boolean }[] = [];
+    for (let i = 0; i < 20; i++) {
+      try {
+        health = await chrome.tabs.sendMessage(tab.id!, { type: "HEALTH" });
+        if (health.length && health.every((h) => h.ok)) break;
+      } catch {
+        /* content script not ready yet */
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const ready = health.length > 0 && health.every((h) => h.ok);
+    return {
+      ok: true,
+      tabId: tab.id,
+      automation: true,
+      ready,
+      health,
+      note: "Draft opened, NOT sent",
+    };
+  }
+
   if (name === "browser_snapshot" || name === "browser_health") {
     const tabId = await getAttached();
     if (tabId === undefined) return { ok: false, reason: "no_attached_tab" };
@@ -233,6 +331,7 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
       type: name === "browser_snapshot" ? "SNAPSHOT" : "HEALTH",
     });
   }
+
   return { ok: false, reason: "unknown_tool" };
 }
 
@@ -292,10 +391,18 @@ async function callTool(name: string, args: any): Promise<unknown> {
 // ---------- routing with sender checks ----------
 const isExtPage = (s: chrome.runtime.MessageSender) =>
   s.id === chrome.runtime.id && !!s.url?.startsWith(chrome.runtime.getURL(""));
-const isBridge = (s: chrome.runtime.MessageSender) =>
-  s.id === chrome.runtime.id &&
-  !!s.tab &&
-  TRUSTED_ORIGINS.includes((s as any).origin ?? "");
+
+const isBridge = (s: chrome.runtime.MessageSender) => {
+  if (s.id !== chrome.runtime.id || !s.tab) return false;
+  try {
+    const u = new URL(s.url ?? "");
+    return (
+      TRUSTED_ORIGINS.includes(u.origin) && u.pathname.startsWith("/admin")
+    );
+  } catch {
+    return false;
+  }
+};
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
