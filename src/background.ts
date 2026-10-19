@@ -116,22 +116,6 @@ function waitForLoad(tabId: number, timeoutMs = 15000) {
 const isPaused = async () =>
   !!(await chrome.storage.local.get("paused")).paused;
 
-async function ensureSiteConnection(
-  sender: chrome.runtime.MessageSender,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const origin = originOf(sender.url);
-  if (!origin || !TRUSTED_ORIGINS.includes(origin))
-    return { ok: false, reason: "forbidden" };
-  const { connectedOrigins = [] } = await chrome.storage.local.get("connectedOrigins");
-  if ((connectedOrigins as string[]).includes(origin)) return { ok: true };
-  const approved = await openApprovalWindow({ mode: "connect", origin });
-  if (!approved) return { ok: false, reason: "site_not_connected" };
-  await chrome.storage.local.set({
-    connectedOrigins: [...new Set([...(connectedOrigins as string[]), origin])],
-  });
-  return { ok: true };
-}
-
 async function audit(e: {
   tool: string;
   source: string;
@@ -442,10 +426,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           : forbidden;
       case "AGENT_LIST_TOOLS":
         if (!trusted) return forbidden;
-        if (isBridge(sender)) {
-          const access = await ensureSiteConnection(sender);
-          if (!access.ok) return access;
-        }
         {
           const tools = await listAllTools(!!msg.all && isExtPage(sender));
           return isBridge(sender)
@@ -455,8 +435,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case "AGENT_CALL_TOOL": {
         if (!trusted) return forbidden;
         if (isBridge(sender)) {
-          const access = await ensureSiteConnection(sender);
-          if (!access.ok) return access;
           if (!SITE_TOOL_ALLOWLIST.has(msg.name))
             return { ok: false, reason: "tool_not_allowed_for_site" };
         }

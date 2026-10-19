@@ -11,9 +11,9 @@ npm run build
 
 In Chrome, open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select the generated `dist` directory. After source changes, run `npm run build` and use **Reload** on the extension card.
 
-## Site connection and approvals
+## Public site tools and approvals
 
-When the public chatbot first requests tools on a trusted site, the extension opens a **Allow this site to use Site Agent?** connection popup. Allowing stores the site origin in extension storage. The console's **Connected sites** section lists approved origins and provides a **Revoke** button.
+During the public demo phase, trusted chatbot origins can request the site allowlist without a separate site-login or connection popup. Origin authentication can be enabled later. The console may still show stored connected origins from older builds, but those records are not required for public tool calls.
 
 Irreversible actions open a separate approval popup showing the action preview. Denying or closing that popup does not run the action. Gmail compose and calendar/Meet draft tools open drafts only; sending or saving remains a user-controlled step.
 
@@ -22,10 +22,9 @@ The public bridge exposes only the site allowlist: Gmail compose/send, calendar 
 ## Manual checks
 
 1. Load the unpacked `dist` build and open the portfolio chatbot.
-2. Confirm the first tool request shows the site connection popup.
-3. Confirm denying it returns `site_not_connected` and does not run a tool.
-4. Confirm the console lists the connected origin and can revoke it.
-5. Confirm a Gmail compose request opens a draft and a send request shows the approval popup.
-6. Confirm a site bridge request for a read, delete, archive, or generic tool is rejected.
+2. Confirm the page reports the extension as connected without a site-consent popup.
+3. Confirm a Gmail compose request opens a draft and a send request shows the approval popup.
+4. Confirm denying the action approval performs no send.
+5. Confirm a site bridge request for a read, delete, archive, or generic tool is rejected.
 
 Gmail and Google Meet DOM selectors must be checked against the live sites before relying on automation.
