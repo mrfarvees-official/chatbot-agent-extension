@@ -11,7 +11,9 @@ describe("public extension tool contract", () => {
     expect(PUBLIC_SITE_TOOL_NAMES).toContain("gmail_send_current_draft");
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_read_email")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_delete_email")).toBe(true);
-    expect(PUBLIC_SITE_TOOL_NAMES).toHaveLength(16);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_read_chat")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_send_chat")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_NAMES).toHaveLength(31);
   });
 
   it("validates the Gmail draft contract without opening Chrome", () => {

@@ -1,6 +1,7 @@
 import type { ToolSpec } from "./core/types";
 import { validateArgs } from "./core/validate";
 import { gmailAdapter } from "./adapters/gmail";
+import { meetAdapter } from "./adapters/meet";
 import { createGmailDraftUrl } from "./gmail-draft";
 import { PUBLIC_SITE_TOOL_ALLOWLIST } from "./site-tools";
 
@@ -236,7 +237,7 @@ async function listAllTools(includeDisabled: boolean): Promise<ToolSpec[]> {
   const seen = new Set<string>();
   // Advertise Gmail capabilities before a Gmail tab exists. Execution will
   // attach/open Gmail when an authenticated user actually calls one.
-  const all = [...globalTools, ...gmailAdapter.tools, ...(await pageTools())].filter(
+  const all = [...globalTools, ...gmailAdapter.tools, ...meetAdapter.tools, ...(await pageTools())].filter(
     (t) => !seen.has(t.name) && !!seen.add(t.name),
   );
 
@@ -255,6 +256,24 @@ async function ensureGmailTab(): Promise<number | undefined> {
   }
 
   const tab = await chrome.tabs.create({ url: "https://mail.google.com/mail/u/0/#inbox" });
+  if (tab.id === undefined) return undefined;
+  await waitForLoad(tab.id);
+  await setAttached(tab.id);
+  return tab.id;
+}
+
+async function ensureMeetTab(): Promise<number | undefined> {
+  const attached = await getAttached();
+  if (attached !== undefined) {
+    try {
+      const tab = await chrome.tabs.get(attached);
+      if (new URL(tab.url ?? "").hostname === "meet.google.com") return attached;
+    } catch {
+      /* Open a Meet tab below. */
+    }
+  }
+
+  const tab = await chrome.tabs.create({ url: "https://meet.google.com/" });
   if (tab.id === undefined) return undefined;
   await waitForLoad(tab.id);
   await setAttached(tab.id);
@@ -364,7 +383,9 @@ async function callTool(name: string, args: any): Promise<unknown> {
 
   const tabId = name.startsWith("gmail_")
     ? await ensureGmailTab()
-    : await getAttached();
+    : name.startsWith("meet_")
+      ? await ensureMeetTab()
+      : await getAttached();
   if (tabId === undefined) return { ok: false, reason: "no_attached_tab" };
   const access = await ensureAccess(tabId);
   if (!access.ok) return access;
