@@ -117,6 +117,12 @@ export const calendarAdapter: SiteAdapter = {
       risk: "write",
       inputSchema: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, message: { type: "string" }, link: { type: "string" } }, required: ["to", "link"] },
     },
+    {
+      name: "calendar_open_availability",
+      description: "Open a Google Calendar day or availability view so the visitor can review free and busy times.",
+      risk: "read",
+      inputSchema: { type: "object", properties: { date: { type: "string", description: "YYYY-MM-DD" } }, required: ["date"] },
+    },
   ],
   snapshot: () => `Google Calendar. ${pageText().slice(0, 1600)}`,
   preview: (tool) => tool === "calendar_delete_event" ? "Delete the currently open calendar event" : "",
@@ -169,6 +175,14 @@ export const calendarAdapter: SiteAdapter = {
       const params = new URLSearchParams({ view: "cm", fs: "1", to: String(args.to), su: String(args.subject || "Calendar invitation"), body });
       await ctx.openUrl(`https://mail.google.com/mail/?${params}`);
       return { ok: true, note: "Gmail invite draft opened, not sent" };
+    }
+    if (tool === "calendar_open_availability") {
+      const date = String(args.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, reason: "date_must_be_YYYY_MM_DD" };
+      const [year, month, day] = date.split("-");
+      await ctx.openUrl(`https://calendar.google.com/calendar/u/0/r/day/${year}/${month}/${day}`);
+      await sleep(700);
+      return { ok: true, date, visible: visibleEvents(), note: "Review visible Calendar events before choosing an available time" };
     }
     throw new Error("Unknown tool " + tool);
   },

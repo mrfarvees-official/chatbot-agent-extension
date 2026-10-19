@@ -33,6 +33,7 @@ export const meetAdapter: SiteAdapter = {
   id: "meet", version: "2", hosts: ["meet.google.com"], matches: (url) => url.hostname === "meet.google.com",
   tools: [
     { name: "meet_join_meeting", description: "Join or request access to the current Google Meet. Requires approval.", risk: "irreversible", inputSchema: { type: "object", properties: {} } },
+    { name: "meet_start_meeting", description: "Open a new Google Meet meeting and attach the browser to it.", risk: "write", inputSchema: { type: "object", properties: {} } },
     { name: "meet_toggle_mic", description: "Mute or unmute the microphone.", risk: "write", inputSchema: { type: "object", properties: {} } },
     { name: "meet_toggle_camera", description: "Turn the camera on or off.", risk: "write", inputSchema: { type: "object", properties: {} } },
     { name: "meet_share_screen", description: "Open Meet's screen-sharing picker. The browser picker may still require user selection.", risk: "write", inputSchema: { type: "object", properties: { source: { type: "string", enum: ["screen", "window", "tab"] } } } },
@@ -47,7 +48,7 @@ export const meetAdapter: SiteAdapter = {
     { name: "meet_raise_hand", description: "Raise or lower the hand.", risk: "write", inputSchema: { type: "object", properties: { raised: { type: "boolean" } }, required: ["raised"] } },
     { name: "meet_send_reaction", description: "Open reactions and select an emoji.", risk: "write", inputSchema: { type: "object", properties: { emoji: { type: "string" } }, required: ["emoji"] } },
     { name: "meet_get_summary", description: "Collect visible participants, chat, captions, and page text for the assistant to summarize.", risk: "read", inputSchema: { type: "object", properties: {} } },
-    { name: "meet_schedule_meeting", description: "Open a prefilled Google Calendar event draft with dates and details.", risk: "write", inputSchema: { type: "object", properties: { title: { type: "string" }, start: { type: "string", description: "ISO date/time" }, end: { type: "string", description: "ISO date/time" }, details: { type: "string" } }, required: ["title", "start", "end"] } },
+    { name: "meet_schedule_meeting", description: "Open a prefilled Google Calendar meeting draft with dates, guests, recurrence, and details.", risk: "write", inputSchema: { type: "object", properties: { title: { type: "string" }, start: { type: "string", description: "ISO date/time" }, end: { type: "string", description: "ISO date/time" }, details: { type: "string" }, guests: { type: "string", description: "Comma-separated email addresses" }, recurrence: { type: "string", description: "Optional RRULE, for example RRULE:FREQ=WEEKLY;BYDAY=MO" } }, required: ["title", "start", "end"] } },
     { name: "meet_compose_invite_email", description: "Open a prefilled Gmail invite draft containing a Meet link. Does NOT send.", risk: "write", inputSchema: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, message: { type: "string" }, meetLink: { type: "string" } }, required: ["to", "meetLink"] } },
   ],
   snapshot: () => `Google Meet. In call: ${inCall()}. Visible text: ${pageText().slice(0, 1200)}`,
@@ -59,6 +60,10 @@ export const meetAdapter: SiteAdapter = {
   ],
   async execute(tool, args, ctx) {
     if (tool === "meet_join_meeting") return click("join now", "ask to join") ? { ok: true } : { ok: false, reason: "join_button_not_found" };
+    if (tool === "meet_start_meeting") {
+      await ctx.openUrl("https://meet.google.com/new");
+      return { ok: true, note: "New Google Meet opened; share the generated link or schedule it through Calendar" };
+    }
     if (tool === "meet_toggle_mic") return click("microphone", "mute") ? { ok: true } : { ok: false, reason: "microphone_button_not_found" };
     if (tool === "meet_toggle_camera") return click("camera") ? { ok: true } : { ok: false, reason: "camera_button_not_found" };
     if (tool === "meet_leave_call") return click("leave call", "hang up") ? { ok: true } : { ok: false, reason: "leave_button_not_found" };
@@ -105,6 +110,8 @@ export const meetAdapter: SiteAdapter = {
       const dates = `${calendarStamp(args.start)}/${calendarStamp(args.end)}`;
       const params = new URLSearchParams({ text: String(args.title), dates });
       if (args.details) params.set("details", String(args.details));
+      if (args.guests) params.set("add", String(args.guests));
+      if (args.recurrence) params.set("recur", String(args.recurrence));
       await ctx.openUrl(`https://calendar.google.com/calendar/r/eventedit?${params}`);
       return { ok: true, note: "Calendar event draft opened; add Google Meet conferencing and save it" };
     }
