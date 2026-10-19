@@ -14,6 +14,11 @@ describe("public extension tool contract", () => {
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_read_chat")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_send_chat")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("calendar_open_availability")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("calendar_create_event")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("calendar_search_events")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("calendar_update_event")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("calendar_rsvp")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("calendar_compose_invite_email")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_start_meeting")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_find_meeting_links")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_join_link")).toBe(true);
