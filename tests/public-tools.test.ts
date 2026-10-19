@@ -15,7 +15,9 @@ describe("public extension tool contract", () => {
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_send_chat")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("calendar_open_availability")).toBe(true);
     expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_start_meeting")).toBe(true);
-    expect(PUBLIC_SITE_TOOL_NAMES).toHaveLength(40);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("gmail_find_meeting_links")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_ALLOWLIST.has("meet_join_link")).toBe(true);
+    expect(PUBLIC_SITE_TOOL_NAMES).toHaveLength(42);
   });
 
   it("validates the Gmail draft contract without opening Chrome", () => {

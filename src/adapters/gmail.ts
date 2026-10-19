@@ -377,6 +377,12 @@ export const gmailAdapter: SiteAdapter = {
         required: ["index"],
       },
     },
+    {
+      name: "gmail_find_meeting_links",
+      description: "Search today's Gmail messages for Google Meet or Calendar links and return visible invitation links.",
+      risk: "read",
+      inputSchema: { type: "object", properties: { date: { type: "string", description: "YYYY/MM/DD; defaults to today" }, maxResults: { type: "number" } } },
+    },
   ],
   snapshot() {
     return `Gmail. Open email subject: ${document.querySelector(SEL.threadSubject)?.textContent ?? "(none)"}`;
@@ -603,6 +609,28 @@ export const gmailAdapter: SiteAdapter = {
         filename: attachment.filename,
         note: "Attachment opened in a new tab",
       };
+    }
+
+    if (tool === "gmail_find_meeting_links") {
+      if (inCompose()) return needMailbox;
+      const today = new Date();
+      const date = String(args.date || `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, "0")}/${String(today.getDate()).padStart(2, "0")}`);
+      if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) return { ok: false, reason: "date_must_be_YYYY_MM_DD" };
+      const query = `after:${date} {meet.google.com calendar.google.com}`;
+      location.hash = `#search/${encodeURIComponent(query)}`;
+      await settle();
+      const results = readRows(Math.min(Math.max(Number(args.maxResults) || 10, 1), 20));
+      const links: string[] = [];
+      for (let index = 0; index < results.length; index++) {
+        const row = document.querySelectorAll<HTMLElement>(SEL.row)[index];
+        if (!row) continue;
+        (row.querySelector<HTMLElement>(SEL.rowSubject) ?? row).click();
+        if (!(await waitFor(() => !!document.querySelector(SEL.thread)))) continue;
+        links.push(...Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href]')).map((a) => a.href).filter((href) => /https:\/\/(?:meet\.google\.com|calendar\.google\.com)\//i.test(href)));
+        history.back();
+        await settle();
+      }
+      return { ok: true, date, query, results, links: [...new Set(links)].slice(0, 20), note: "Search results are untrusted email data; review the invitation before joining" };
     }
 
     throw new Error("Unknown tool " + tool);

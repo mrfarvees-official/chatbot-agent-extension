@@ -33,6 +33,7 @@ export const meetAdapter: SiteAdapter = {
   id: "meet", version: "2", hosts: ["meet.google.com"], matches: (url) => url.hostname === "meet.google.com",
   tools: [
     { name: "meet_join_meeting", description: "Join or request access to the current Google Meet. Requires approval.", risk: "irreversible", inputSchema: { type: "object", properties: {} } },
+    { name: "meet_join_link", description: "Open a Google Meet link from an email and attempt to join it. Requires approval.", risk: "irreversible", inputSchema: { type: "object", properties: { url: { type: "string" } }, required: ["url"] } },
     { name: "meet_start_meeting", description: "Open a new Google Meet meeting and attach the browser to it.", risk: "write", inputSchema: { type: "object", properties: {} } },
     { name: "meet_toggle_mic", description: "Mute or unmute the microphone.", risk: "write", inputSchema: { type: "object", properties: {} } },
     { name: "meet_toggle_camera", description: "Turn the camera on or off.", risk: "write", inputSchema: { type: "object", properties: {} } },
@@ -60,6 +61,13 @@ export const meetAdapter: SiteAdapter = {
   ],
   async execute(tool, args, ctx) {
     if (tool === "meet_join_meeting") return click("join now", "ask to join") ? { ok: true } : { ok: false, reason: "join_button_not_found" };
+    if (tool === "meet_join_link") {
+      const url = String(args.url);
+      if (!/^https:\/\/meet\.google\.com\//.test(url)) return { ok: false, reason: "meet_url_required" };
+      await ctx.openUrl(url);
+      await sleep(1000);
+      return click("join now", "ask to join") ? { ok: true, url } : { ok: false, reason: "join_button_not_found", url };
+    }
     if (tool === "meet_start_meeting") {
       await ctx.openUrl("https://meet.google.com/new");
       return { ok: true, note: "New Google Meet opened; share the generated link or schedule it through Calendar" };

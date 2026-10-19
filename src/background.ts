@@ -418,6 +418,21 @@ async function callTool(name: string, args: any): Promise<unknown> {
     });
     if (!approved) return { ok: false, reason: "denied_by_user" };
   }
+  if (name === "meet_join_link") {
+    const url = String(args?.url ?? "");
+    if (!/^https:\/\/meet\.google\.com\//.test(url))
+      return { ok: false, reason: "meet_url_required" };
+    await chrome.tabs.update(tabId, { url });
+    await waitForLoad(tabId);
+    await setAttached(tabId);
+    const reopened = await ensureAccess(tabId);
+    if (!reopened.ok) return reopened;
+    return chrome.tabs.sendMessage(tabId, {
+      type: "EXEC",
+      tool: "meet_join_meeting",
+      args: {},
+    });
+  }
   return chrome.tabs.sendMessage(tabId, {
     type: "EXEC",
     tool: name,
