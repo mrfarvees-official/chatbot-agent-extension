@@ -14,7 +14,7 @@ function isTrustedOrigin(value: string) {
     const url = new URL(value);
     return (
       TRUSTED_ORIGINS.includes(url.origin) ||
-      (url.protocol === "http:" &&
+      ((url.protocol === "http:" || url.protocol === "https:") &&
         (url.hostname === "localhost" || url.hostname === "127.0.0.1"))
     );
   } catch {
