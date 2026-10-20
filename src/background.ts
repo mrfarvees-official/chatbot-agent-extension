@@ -155,17 +155,14 @@ async function openApprovalWindow(
     chrome.runtime.getURL("approve.html") +
     "?" +
     new URLSearchParams({ id, ...params });
-  const win = await chrome.windows.create({
-    url,
-    type: "popup",
-    width: 460,
-    height: 380,
-  });
-  const winId = win?.id;
-
   return new Promise<boolean>((resolve) => {
+    let winId: number | undefined;
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (ok: boolean) => {
-      clearTimeout(timer);
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
       pending.delete(id);
       if (winId !== undefined) {
         winToId.delete(winId);
@@ -173,9 +170,29 @@ async function openApprovalWindow(
       }
       resolve(ok);
     };
-    const timer = setTimeout(() => finish(false), 60_000);
+
+    // Register before opening the popup. A fast click must not race the
+    // service worker's pending-approval registration.
     pending.set(id, finish);
-    if (winId !== undefined) winToId.set(winId, id);
+    timer = setTimeout(() => finish(false), 60_000);
+
+    chrome.windows
+      .create({
+        url,
+        type: "popup",
+        width: 460,
+        height: 380,
+      })
+      .then((win) => {
+        winId = win?.id;
+        if (winId === undefined) return;
+        if (settled) {
+          chrome.windows.remove(winId).catch(() => {});
+          return;
+        }
+        winToId.set(winId, id);
+      })
+      .catch(() => finish(false));
   });
 }
 
