@@ -271,7 +271,7 @@ export async function pageTools(): Promise<ToolSpec[]> {
   }
 }
 
-async function listAllTools(includeDisabled: boolean): Promise<ToolSpec[]> {
+async function listAllTools(includeDisabled: boolean, includePageTools = true): Promise<ToolSpec[]> {
   const { disabledTools = [] } =
     await chrome.storage.local.get("disabledTools");
   const disabled = disabledTools as string[];
@@ -279,7 +279,9 @@ async function listAllTools(includeDisabled: boolean): Promise<ToolSpec[]> {
   const seen = new Set<string>();
   // Advertise Gmail capabilities before a Gmail tab exists. Execution will
   // attach/open Gmail when an authenticated user actually calls one.
-  const all = [...globalTools, ...gmailAdapter.tools, ...calendarAdapter.tools, ...meetAdapter.tools, ...(await pageTools())].filter(
+  // Bridge discovery must not depend on a live page: its 5s client deadline
+  // is shorter than the content-script timeout. Execution attaches separately.
+  const all = [...globalTools, ...gmailAdapter.tools, ...calendarAdapter.tools, ...meetAdapter.tools, ...(includePageTools ? await pageTools() : [])].filter(
     (t) => !seen.has(t.name) && !!seen.add(t.name),
   );
 
@@ -564,7 +566,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case "AGENT_LIST_TOOLS":
         if (!trusted) return forbidden;
         {
-          const tools = await listAllTools(!!msg.all && isExtPage(sender));
+          const tools = await listAllTools(!!msg.all && isExtPage(sender), !isBridge(sender));
           return isBridge(sender)
             ? tools.filter((tool) => SITE_TOOL_ALLOWLIST.has(tool.name))
             : tools;

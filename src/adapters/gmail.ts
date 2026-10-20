@@ -1,8 +1,8 @@
 import type { SiteAdapter } from "../core/types";
+import { findGmailSendButton } from "../gmail-send-control";
 
 // Every selector lives here. Gmail changes them: verify in DevTools (snippets below).
 const SEL = {
-  send: 'div[role="button"][data-tooltip^="Send"]',
   to: 'textarea[name="to"], input[name="to"]',
   cc: 'textarea[name="cc"], input[name="cc"]',
   bcc: 'textarea[name="bcc"], input[name="bcc"]',
@@ -399,7 +399,7 @@ export const gmailAdapter: SiteAdapter = {
         { name: "compose_to", ok: !!document.querySelector(SEL.to) },
         { name: "compose_subject", ok: !!document.querySelector(SEL.subject) },
         { name: "compose_body", ok: !!document.querySelector(SEL.body) },
-        { name: "send_button", ok: !!document.querySelector(SEL.send) },
+        { name: "send_button", ok: !!findGmailSendButton() },
       ];
     }
     const r = SEL.row;
@@ -436,7 +436,7 @@ export const gmailAdapter: SiteAdapter = {
     }
 
     if (tool === "gmail_send_current_draft") {
-      const btn = document.querySelector<HTMLElement>(SEL.send);
+      const btn = findGmailSendButton();
       if (!btn) return { ok: false, reason: "send_button_not_found" };
       btn.click();
       return {
