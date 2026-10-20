@@ -4,6 +4,7 @@ import {
   PUBLIC_SITE_TOOL_ALLOWLIST,
   PUBLIC_SITE_TOOL_NAMES,
 } from "../src/site-tools";
+import { normalizeToolOutcome } from "../src/core/outcome";
 
 describe("public extension tool contract", () => {
   it("exposes only the intended public tools", () => {
@@ -56,5 +57,22 @@ describe("public extension tool contract", () => {
     expect(parsed.searchParams.get("cc")).toBe("cc@example.com");
     expect(parsed.searchParams.get("su")).toBe("Leave request – 23 Oct");
     expect(parsed.searchParams.get("body")).toContain("Please approve my leave.");
+  });
+
+  it("normalizes every tool response to an explicit outcome", () => {
+    expect(normalizeToolOutcome("browser_list_tabs", [{ id: 1 }])).toEqual({
+      ok: true,
+      tool: "browser_list_tabs",
+      result: [{ id: 1 }],
+    });
+    expect(normalizeToolOutcome("calendar_list_events", { ok: true, events: [] })).toEqual({
+      ok: true,
+      events: [],
+    });
+    expect(normalizeToolOutcome("broken_tool", undefined)).toEqual({
+      ok: true,
+      tool: "broken_tool",
+      result: null,
+    });
   });
 });

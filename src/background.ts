@@ -5,6 +5,7 @@ import { meetAdapter } from "./adapters/meet";
 import { calendarAdapter } from "./adapters/calendar";
 import { createGmailDraftUrl } from "./gmail-draft";
 import { PUBLIC_SITE_TOOL_ALLOWLIST } from "./site-tools";
+import { normalizeToolOutcome } from "./core/outcome";
 
 const API_VERSION = 2;
 const TRUSTED_ORIGINS = ["https://chatbot.farvees.xyz"];
@@ -107,8 +108,11 @@ const setAttached = (id: number) => chrome.storage.session.set({ [KEY]: id });
 
 function waitForLoad(tabId: number, timeoutMs = 15000) {
   return new Promise<void>((resolve) => {
+    let settled = false;
     const timer = setTimeout(done, timeoutMs);
     function done() {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       chrome.tabs.onUpdated.removeListener(onUpdated);
       resolve();
@@ -117,6 +121,26 @@ function waitForLoad(tabId: number, timeoutMs = 15000) {
       if (id === tabId && info.status === "complete") done();
     }
     chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.get(tabId).then((tab) => {
+      if (tab.status === "complete") done();
+    }).catch(() => done());
+  });
+}
+
+function sendTabMessage<T>(tabId: number, message: unknown, timeoutMs = 12000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback();
+    };
+    const timer = setTimeout(() => finish(() => reject(new Error("tab_message_timeout"))), timeoutMs);
+    chrome.tabs.sendMessage(tabId, message).then(
+      (value) => finish(() => resolve(value as T)),
+      (error) => finish(() => reject(error)),
+    );
   });
 }
 
@@ -241,7 +265,7 @@ export async function pageTools(): Promise<ToolSpec[]> {
       target: { tabId },
       files: ["content.js"],
     });
-    return await chrome.tabs.sendMessage(tabId, { type: "LIST_TOOLS" });
+    return await sendTabMessage<ToolSpec[]>(tabId, { type: "LIST_TOOLS" });
   } catch {
     return [];
   }
@@ -373,7 +397,7 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
     let health: { name: string; ok: boolean }[] = [];
     for (let i = 0; i < 20; i++) {
       try {
-        health = await chrome.tabs.sendMessage(tab.id!, { type: "HEALTH" });
+        health = await sendTabMessage<{ name: string; ok: boolean }[]>(tab.id!, { type: "HEALTH" });
         if (health.length && health.every((h) => h.ok)) break;
       } catch {
         /* content script not ready yet */
@@ -396,7 +420,7 @@ async function runGlobal(name: string, args: any): Promise<unknown> {
     if (tabId === undefined) return { ok: false, reason: "no_attached_tab" };
     const access = await ensureAccess(tabId);
     if (!access.ok) return access;
-    return chrome.tabs.sendMessage(tabId, {
+    return sendTabMessage(tabId, {
       type: name === "browser_snapshot" ? "SNAPSHOT" : "HEALTH",
     });
   }
@@ -428,7 +452,7 @@ async function callTool(name: string, args: any): Promise<unknown> {
   const access = await ensureAccess(tabId);
   if (!access.ok) return access;
 
-  const specs: ToolSpec[] = await chrome.tabs.sendMessage(tabId, {
+  const specs: ToolSpec[] = await sendTabMessage<ToolSpec[]>(tabId, {
     type: "LIST_TOOLS",
   });
   const spec = specs.find((s) => s.name === name);
@@ -442,7 +466,7 @@ async function callTool(name: string, args: any): Promise<unknown> {
     let preview = "";
     try {
       preview = String(
-        (await chrome.tabs.sendMessage(tabId, {
+        (await sendTabMessage(tabId, {
           type: "PREVIEW",
           tool: name,
           args,
@@ -465,7 +489,7 @@ async function callTool(name: string, args: any): Promise<unknown> {
     await setAttached(tabId);
     const reopened = await ensureAccess(tabId);
     if (!reopened.ok) return reopened;
-    return chrome.tabs.sendMessage(tabId, {
+    return sendTabMessage(tabId, {
       type: "EXEC",
       tool: "meet_join_meeting",
       args: {},
@@ -481,7 +505,7 @@ async function callTool(name: string, args: any): Promise<unknown> {
     const reopened = await ensureAccess(tabId);
     if (!reopened.ok) return reopened;
     const tab = await chrome.tabs.get(tabId);
-    const snapshot = await chrome.tabs.sendMessage(tabId, { type: "SNAPSHOT" });
+    const snapshot = await sendTabMessage<string>(tabId, { type: "SNAPSHOT" });
     return { ok: true, query, page: tab.url, snapshot };
   }
   if (name === "calendar_open_availability") {
@@ -497,10 +521,10 @@ async function callTool(name: string, args: any): Promise<unknown> {
     const reopened = await ensureAccess(tabId);
     if (!reopened.ok) return reopened;
     const tab = await chrome.tabs.get(tabId);
-    const snapshot = await chrome.tabs.sendMessage(tabId, { type: "SNAPSHOT" });
+    const snapshot = await sendTabMessage<string>(tabId, { type: "SNAPSHOT" });
     return { ok: true, date, page: tab.url, snapshot };
   }
-  return chrome.tabs.sendMessage(tabId, {
+  return sendTabMessage(tabId, {
     type: "EXEC",
     tool: name,
     args: args ?? {},
@@ -554,9 +578,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (await isPaused()) return { ok: false, reason: "paused" };
         let out: any;
         try {
-          out = await callTool(msg.name, msg.args);
+          out = normalizeToolOutcome(msg.name, await callTool(msg.name, msg.args));
         } catch (e) {
-          out = { ok: false, reason: "internal_error", error: String(e) };
+          out = { ok: false, tool: msg.name, reason: "internal_error", error: String(e) };
         }
         await audit({
           tool: msg.name,
