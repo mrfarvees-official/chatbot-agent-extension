@@ -292,4 +292,14 @@ To add an adapter, implement `SiteAdapter` in `src/adapters`, register it in `sr
 
 ## Version and license metadata
 
+### Appearance and approval windows
+
+The approval pages and console follow Chatbot's current light or dark theme, defaulting to dark. The trusted bridge synchronizes changes to `data-theme`; open extension pages update automatically. Theme synchronization only changes appearance and does not grant tool permissions.
+
+Connection, site-permission, and action approvals open centered over the last focused normal browser window. Long previews scroll inside the card; closing the window or pressing Escape declines the request. Chrome's own permission dialogs and native window frames use browser/OS styling.
+
+After updating, run `npm run build`, reload the unpacked extension, and refresh Chatbot. Check both themes, open an approval, toggle Chatbot's theme while the approval is open, and test positioning on a second monitor. Actual browser placement and native permission prompts require manual verification.
+
+`manifest.json` includes a description, author (`mrfarvees-official`), 16/32/48/128px PNG icons, and toolbar icons. The vector source is `icons/icon.svg`; generated PNGs are committed so builds need no image-generation dependency. The build copies icons and the shared `theme.css` into `dist`.
+
 The installed extension version comes from `manifest.json`; `package.json` maintains separate package version metadata. The bridge protocol is API version 2. `package.json` declares ISC; this repository currently has no standalone license file.

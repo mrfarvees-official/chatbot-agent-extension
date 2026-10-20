@@ -5,8 +5,9 @@ import { join } from "node:path";
 const root = process.cwd();
 const dist = join(root, "dist");
 mkdirSync(dist, { recursive: true });
-for (const f of ["manifest.json", "approve.html", "console.html"])
+for (const f of ["manifest.json", "approve.html", "console.html", "theme.css"])
   cpSync(join(root, f), join(dist, f));
+cpSync(join(root, "icons"), join(dist, "icons"), { recursive: true });
 
 const options = {
   entryPoints: {

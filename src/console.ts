@@ -1,4 +1,4 @@
-export {};
+import "./theme";
 
 type Spec = {
   name: string;

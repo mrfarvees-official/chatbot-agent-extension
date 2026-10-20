@@ -6,6 +6,7 @@ import { calendarAdapter } from "./adapters/calendar";
 import { createGmailDraftUrl } from "./gmail-draft";
 import { PUBLIC_SITE_TOOL_ALLOWLIST } from "./site-tools";
 import { normalizeToolOutcome } from "./core/outcome";
+import { centeredPopupBounds } from "./popup-layout";
 
 const API_VERSION = 2;
 const TRUSTED_ORIGINS = ["https://chatbot.farvees.xyz"];
@@ -174,11 +175,14 @@ const winToId = new Map<number, string>();
 async function openApprovalWindow(
   params: Record<string, string>,
 ): Promise<boolean> {
+  const savedTheme: Record<string, unknown> = await chrome.storage.local.get("chatbotTheme").catch(() => ({}));
+  const theme = savedTheme.chatbotTheme === "light" ? "light" : "dark";
+  const parent = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }).catch(() => null);
   const id = crypto.randomUUID();
   const url =
     chrome.runtime.getURL("approve.html") +
     "?" +
-    new URLSearchParams({ id, ...params });
+    new URLSearchParams({ id, ...params, theme });
   return new Promise<boolean>((resolve) => {
     let winId: number | undefined;
     let settled = false;
@@ -204,8 +208,8 @@ async function openApprovalWindow(
       .create({
         url,
         type: "popup",
-        width: 460,
-        height: 380,
+        ...(parent ? centeredPopupBounds(parent) : { width: 480, height: 520 }),
+        focused: true,
       })
       .then((win) => {
         winId = win?.id;
@@ -554,7 +558,12 @@ const isBridge = (s: chrome.runtime.MessageSender) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     const trusted = isBridge(sender) || isExtPage(sender);
+    if (trusted && (msg?.theme === "light" || msg?.theme === "dark")) {
+      await chrome.storage.local.set({ chatbotTheme: msg.theme });
+    }
     switch (msg?.type) {
+      case "AGENT_SET_THEME":
+        return trusted ? { ok: true } : forbidden;
       case "AGENT_PING":
         return trusted
           ? {

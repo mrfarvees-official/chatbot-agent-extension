@@ -1,46 +1,10 @@
 <!doctype html>
 <meta charset="utf-8" />
 <title>Agent console</title>
-<style>
-  body {
-    font-family: system-ui, sans-serif;
-    max-width: 860px;
-    margin: 24px auto;
-    padding: 0 16px;
-  }
-  .card {
-    border: 1px solid #8884;
-    border-radius: 8px;
-    padding: 12px;
-    margin: 10px 0;
-  }
-  .badge {
-    font-size: 11px;
-    padding: 1px 6px;
-    border-radius: 6px;
-    border: 1px solid #8886;
-    margin-left: 6px;
-  }
-  label {
-    display: block;
-    margin: 6px 0;
-  }
-  input[type="text"],
-  input[type="number"],
-  textarea,
-  select {
-    width: 100%;
-    box-sizing: border-box;
-  }
-  pre {
-    white-space: pre-wrap;
-    word-break: break-word;
-    background: #8881;
-    padding: 8px;
-    border-radius: 6px;
-  }
-</style>
-<body>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="icons/icon-32.png" />
+<link rel="stylesheet" href="theme.css" />
+<body class="console-page">
   <h2>Agent console</h2>
   <label
     ><input type="checkbox" id="paused" /> Pause all tool calls (kill

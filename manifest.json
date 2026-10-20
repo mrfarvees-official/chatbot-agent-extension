@@ -1,7 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Site Agent",
-  "version": "0.4.1",
+  "description": "Connect Chatbot to Gmail, Google Calendar, and Google Meet with browser tools and approval prompts.",
+  "author": "mrfarvees-official",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "version": "0.4.2",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": [
     "http://localhost:*/*",
@@ -11,7 +19,10 @@
     "https://chatbot.farvees.xyz/*"
   ],
   "optional_host_permissions": ["<all_urls>"],
-  "action": { "default_title": "Open agent console" },
+  "action": {
+    "default_title": "Open agent console",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" }
+  },
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
